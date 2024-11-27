@@ -1,0 +1,127 @@
+import math
+
+def write_obj(filename, vertices, faces):
+    """
+    Writes the vertices and faces to an OBJ file.
+    """
+    with open(filename, "w") as file:
+        file.write("# BMW E30 Rotor and Hub Assembly Model\n")
+        for vertex in vertices:
+            file.write(f"v {vertex[0]} {vertex[1]} {vertex[2]}\n")
+        for face in faces:
+            face_indices = " ".join(str(idx + 1) for idx in face)
+            file.write(f"f {face_indices}\n")
+
+def generate_rotor_hub(
+    rotor_outer_radius, rotor_inner_radius, rotor_thickness,
+    hub_flange_radius, hub_flange_thickness,
+    hub_center_bore_radius, hub_center_bore_depth,
+    hub_bearing_seat_radius, hub_bearing_seat_width,
+    num_vents, bolt_pattern_radius, bolt_hole_radius, num_bolts,
+    segments=100
+):
+    """
+    Generates vertices and faces for a combined rotor and hub model.
+    """
+    vertices = []
+    faces = []
+
+    # Generate the rotor geometry
+    for segment in range(segments):
+        theta = 2 * math.pi * segment / segments
+        x_outer = rotor_outer_radius * math.cos(theta)
+        y_outer = rotor_outer_radius * math.sin(theta)
+        x_inner = rotor_inner_radius * math.cos(theta)
+        y_inner = rotor_inner_radius * math.sin(theta)
+
+        # Add vertices for rotor's top and bottom faces
+        vertices.append((x_outer, y_outer, rotor_thickness / 2))  # Outer top
+        vertices.append((x_outer, y_outer, -rotor_thickness / 2))  # Outer bottom
+        vertices.append((x_inner, y_inner, rotor_thickness / 2))  # Inner top
+        vertices.append((x_inner, y_inner, -rotor_thickness / 2))  # Inner bottom
+
+    # Connect rotor faces
+    for segment in range(segments):
+        next_segment = (segment + 1) % segments
+        # Outer surface
+        faces.append([segment * 4, next_segment * 4, next_segment * 4 + 1])
+        faces.append([segment * 4, next_segment * 4 + 1, segment * 4 + 1])
+        # Inner surface
+        faces.append([segment * 4 + 2, next_segment * 4 + 2, next_segment * 4 + 3])
+        faces.append([segment * 4 + 2, next_segment * 4 + 3, segment * 4 + 3])
+        # Top face
+        faces.append([segment * 4, segment * 4 + 2, next_segment * 4 + 2])
+        faces.append([segment * 4, next_segment * 4 + 2, next_segment * 4])
+        # Bottom face
+        faces.append([segment * 4 + 1, next_segment * 4 + 1, next_segment * 4 + 3])
+        faces.append([segment * 4 + 1, next_segment * 4 + 3, segment * 4 + 3])
+
+    # Generate the hub flange geometry
+    flange_start_idx = len(vertices)
+    for segment in range(segments):
+        theta = 2 * math.pi * segment / segments
+        x_outer = hub_flange_radius * math.cos(theta)
+        y_outer = hub_flange_radius * math.sin(theta)
+        x_inner = hub_center_bore_radius * math.cos(theta)
+        y_inner = hub_center_bore_radius * math.sin(theta)
+
+        # Add vertices for flange's top and bottom faces
+        vertices.append((x_outer, y_outer, rotor_thickness / 2))  # Outer top
+        vertices.append((x_outer, y_outer, rotor_thickness / 2 - hub_flange_thickness))  # Outer bottom
+        vertices.append((x_inner, y_inner, rotor_thickness / 2))  # Inner top
+        vertices.append((x_inner, y_inner, rotor_thickness / 2 - hub_flange_thickness))  # Inner bottom
+
+    # Connect hub flange faces
+    for segment in range(segments):
+        next_segment = (segment + 1) % segments
+        # Outer surface
+        faces.append([flange_start_idx + segment * 4, flange_start_idx + next_segment * 4, flange_start_idx + next_segment * 4 + 1])
+        faces.append([flange_start_idx + segment * 4, flange_start_idx + next_segment * 4 + 1, flange_start_idx + segment * 4 + 1])
+        # Inner surface
+        faces.append([flange_start_idx + segment * 4 + 2, flange_start_idx + next_segment * 4 + 2, flange_start_idx + next_segment * 4 + 3])
+        faces.append([flange_start_idx + segment * 4 + 2, flange_start_idx + next_segment * 4 + 3, flange_start_idx + segment * 4 + 3])
+
+    # Generate bolt holes
+    bolt_angle = 2 * math.pi / num_bolts
+    for i in range(num_bolts):
+        angle = i * bolt_angle
+        x_bolt = bolt_pattern_radius * math.cos(angle)
+        y_bolt = bolt_pattern_radius * math.sin(angle)
+        for segment in range(segments):
+            theta = 2 * math.pi * segment / segments
+            x = bolt_hole_radius * math.cos(theta) + x_bolt
+            y = bolt_hole_radius * math.sin(theta) + y_bolt
+            z = rotor_thickness / 2
+            vertices.append((x, y, z))
+            vertices.append((x, y, -z))
+
+    return vertices, faces
+
+if __name__ == "__main__":
+    # Dimensions
+    rotor_outer_radius = 130  # mm
+    rotor_inner_radius = 70  # mm
+    rotor_thickness = 22  # mm
+    hub_flange_radius = 70  # mm
+    hub_flange_thickness = 12  # mm
+    hub_center_bore_radius = 28.55  # mm
+    hub_center_bore_depth = 10  # mm
+    hub_bearing_seat_radius = 21  # mm
+    hub_bearing_seat_width = 35  # mm
+    bolt_pattern_radius = 50  # mm
+    bolt_hole_radius = 6  # mm
+    num_bolts = 4  # 4x100 PCD
+    num_vents = 30  # Ventilation channels
+
+    # Generate geometry
+    vertices, faces = generate_rotor_hub(
+        rotor_outer_radius, rotor_inner_radius, rotor_thickness,
+        hub_flange_radius, hub_flange_thickness,
+        hub_center_bore_radius, hub_center_bore_depth,
+        hub_bearing_seat_radius, hub_bearing_seat_width,
+        num_vents, bolt_pattern_radius, bolt_hole_radius, num_bolts
+    )
+
+    # Save to OBJ file
+    write_obj("bmw_e30_rotor_hub.obj", vertices, faces)
+    print("Combined rotor and hub model saved as bmw_e30_rotor_hub.obj")
