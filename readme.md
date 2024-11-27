@@ -1,0 +1,1 @@
+Basically, this is a group of scripts that return STL files and other for used in CAD, I'm if anyone does download this and knows how to run these scripts. They are in for a treat. I have been designing some special E 30 parts.
