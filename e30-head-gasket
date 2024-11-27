@@ -1,0 +1,97 @@
+import math
+
+def write_obj(filename, vertices, faces):
+    """
+    Writes the vertices and faces to an OBJ file.
+    """
+    with open(filename, "w") as file:
+        file.write("# BMW E30 M20B27 Head Gasket Model\n")
+        for vertex in vertices:
+            file.write(f"v {vertex[0]} {vertex[1]} {vertex[2]}\n")
+        for face in faces:
+            face_indices = " ".join(str(idx + 1) for idx in face)
+            file.write(f"f {face_indices}\n")
+
+def generate_head_gasket(
+    outer_radius, inner_radius, gasket_thickness,
+    bolt_pattern_radius, bolt_hole_radius, num_bolts, segments=100, curve_depth=0.5
+):
+    """
+    Generates vertices and faces for a BMW E30 M20B27 head gasket model.
+    Includes inner circle flaring downward on one side only.
+    
+    Parameters:
+        curve_depth: Proportion of the inner radius to use for curvature (0.0 to 1.0).
+    """
+    vertices = []
+    faces = []
+
+    # Generate the outer and inner circles for the gasket
+    for segment in range(segments):
+        theta = 2 * math.pi * segment / segments
+        x_outer = outer_radius * math.cos(theta)
+        y_outer = outer_radius * math.sin(theta)
+        x_inner = inner_radius * math.cos(theta)
+        y_inner = inner_radius * math.sin(theta)
+
+        # Curve effect for inner radius: Top flat, bottom flared
+        z_inner_top = gasket_thickness / 2  # Flat top
+        z_inner_bottom = -gasket_thickness / 2 - curve_depth * inner_radius * abs(math.cos(theta))
+
+        # Add vertices for the gasket's outer and inner surfaces
+        vertices.append((x_outer, y_outer, gasket_thickness / 2))  # Outer top
+        vertices.append((x_outer, y_outer, -gasket_thickness / 2))  # Outer bottom
+        vertices.append((x_inner, y_inner, z_inner_top))  # Inner top (flat)
+        vertices.append((x_inner, y_inner, z_inner_bottom))  # Inner bottom (flared)
+
+    # Connect gasket faces (outer and inner surfaces)
+    for segment in range(segments):
+        next_segment = (segment + 1) % segments
+        # Outer surface
+        faces.append([segment * 4, next_segment * 4, next_segment * 4 + 1])
+        faces.append([segment * 4, next_segment * 4 + 1, segment * 4 + 1])
+        # Inner surface
+        faces.append([segment * 4 + 2, next_segment * 4 + 2, next_segment * 4 + 3])
+        faces.append([segment * 4 + 2, next_segment * 4 + 3, segment * 4 + 3])
+        # Top face
+        faces.append([segment * 4, segment * 4 + 2, next_segment * 4 + 2])
+        faces.append([segment * 4, next_segment * 4 + 2, next_segment * 4])
+        # Bottom face
+        faces.append([segment * 4 + 1, next_segment * 4 + 1, next_segment * 4 + 3])
+        faces.append([segment * 4 + 1, next_segment * 4 + 3, segment * 4 + 3])
+
+    # Generate bolt holes
+    bolt_angle = 2 * math.pi / num_bolts
+    for i in range(num_bolts):
+        angle = i * bolt_angle
+        x_bolt = bolt_pattern_radius * math.cos(angle)
+        y_bolt = bolt_pattern_radius * math.sin(angle)
+        for segment in range(segments):
+            theta = 2 * math.pi * segment / segments
+            x = bolt_hole_radius * math.cos(theta) + x_bolt
+            y = bolt_hole_radius * math.sin(theta) + y_bolt
+            z = gasket_thickness / 2
+            vertices.append((x, y, z))
+            vertices.append((x, y, -z))
+
+    return vertices, faces
+
+
+if __name__ == "__main__":
+    # Dimensions for the BMW E30 M20B27 Head Gasket
+    outer_radius = 90  # mm (outer radius of the gasket)
+    inner_radius = 55  # mm (inner bore radius, smaller for increased compression)
+    gasket_thickness = 0.9  # mm (gasket thickness, thicker for better sealing)
+    bolt_pattern_radius = 75  # mm (radius of the bolt hole pattern)
+    bolt_hole_radius = 6  # mm (radius of each bolt hole)
+    num_bolts = 10  # Number of bolts around the gasket
+
+    # Generate geometry for the gasket
+    vertices, faces = generate_head_gasket(
+        outer_radius, inner_radius, gasket_thickness,
+        bolt_pattern_radius, bolt_hole_radius, num_bolts
+    )
+
+    # Save to OBJ file
+    write_obj("bmw_e30_head_gasket.obj", vertices, faces)
+    print("BMW E30 M20B27 Head Gasket Model saved as bmw_e30_head_gasket.obj")
